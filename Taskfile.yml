@@ -1,0 +1,34 @@
+version: "3"
+
+silent: false
+
+vars:
+  PROJECT_DIR_FROM_GOPATH: "github.com/qrksp/king-of-algo"
+
+tasks:
+  virtual-env-init:
+    desc: Init virtual env
+    cmds:
+      - python3 -m venv .venv
+
+  activate-venv:
+    desc: Setup virtual environment
+    cmds:
+      - source .venv/bin/activate
+
+  compile-pyteal:
+    desc: Compiles pyteal contracts into teal
+    cmds:
+      - python3 contracts/king_of_algo.py
+
+  install-deps:
+    desc: Install dependencies
+    cmds:
+      - pip3 install git+https://github.com/algorand/pyteal
+      - pip3 install py-algorand-sdk
+
+  integration:
+    desc: Run integration tests
+    cmds:
+      - go test {{if eq .GOARCH "arm64"}}-tags=dynamic{{end}} -failfast -count=1 -p=1 -v {{if .run}}-run {{.run}}{{end}}
+        {{.PROJECT_DIR_FROM_GOPATH}}/integration

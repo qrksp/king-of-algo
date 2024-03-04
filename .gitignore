@@ -1,0 +1,4 @@
+.venv
+dryruns
+new-app*
+.env.local

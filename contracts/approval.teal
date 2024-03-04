@@ -1,0 +1,410 @@
+#pragma version 6
+txn ApplicationID
+int 0
+==
+bnz main_l23
+txn OnCompletion
+int OptIn
+==
+bnz main_l22
+txn OnCompletion
+int CloseOut
+==
+bnz main_l21
+txn OnCompletion
+int UpdateApplication
+==
+bnz main_l20
+txn OnCompletion
+int DeleteApplication
+==
+bnz main_l19
+txn OnCompletion
+int NoOp
+==
+bnz main_l7
+err
+main_l7:
+byte "king"
+app_global_get
+byte ""
+==
+bnz main_l16
+byte "king"
+app_global_get
+byte ""
+!=
+bnz main_l10
+err
+main_l10:
+global GroupSize
+int 4
+==
+assert
+txn GroupIndex
+int 0
+==
+assert
+gtxn 0 RekeyTo
+global ZeroAddress
+==
+gtxn 1 RekeyTo
+global ZeroAddress
+==
+&&
+gtxn 2 RekeyTo
+global ZeroAddress
+==
+&&
+gtxn 3 RekeyTo
+global ZeroAddress
+==
+&&
+assert
+int 1
+gtxn 0 TypeEnum
+int appl
+==
+&&
+gtxn 1 TypeEnum
+int pay
+==
+assert
+gtxn 1 Sender
+byte "king"
+app_global_get
+!=
+assert
+gtxn 1 Receiver
+byte "admin"
+app_global_get
+==
+assert
+gtxn 1 CloseRemainderTo
+global ZeroAddress
+==
+assert
+int 1
+&&
+gtxn 2 TypeEnum
+int pay
+==
+assert
+gtxn 2 Sender
+byte "king"
+app_global_get
+!=
+assert
+gtxn 2 Receiver
+global CurrentApplicationAddress
+==
+assert
+gtxn 2 CloseRemainderTo
+global ZeroAddress
+==
+assert
+int 1
+&&
+gtxn 3 TypeEnum
+int pay
+==
+assert
+gtxn 3 Sender
+byte "king"
+app_global_get
+!=
+assert
+gtxn 3 Receiver
+byte "king"
+app_global_get
+==
+assert
+gtxn 3 CloseRemainderTo
+global ZeroAddress
+==
+assert
+int 1
+&&
+bnz main_l12
+err
+main_l12:
+byte "end_of_reign_timestamp"
+app_global_get
+global LatestTimestamp
+>
+bnz main_l15
+txn Fee
+global MinTxnFee
+int 2
+*
+==
+assert
+gtxn 1 Amount
+gtxn 2 Amount
++
+gtxn 3 Amount
++
+byte "init_price"
+app_global_get
+==
+assert
+gtxn 1 Amount
+byte "init_price"
+app_global_get
+byte "admin_fee"
+app_global_get
+int 100
+callsub mutiplyfixedpoint_3
+==
+assert
+itxn_begin
+int pay
+itxn_field TypeEnum
+gtxn 3 Receiver
+itxn_field Receiver
+global CurrentApplicationAddress
+balance
+global CurrentApplicationAddress
+min_balance
+-
+itxn_field Amount
+int 0
+itxn_field Fee
+itxn_submit
+callsub setinitstate_1
+main_l14:
+callsub setnewking_0
+int 1
+return
+main_l15:
+gtxn 1 Amount
+gtxn 2 Amount
++
+gtxn 3 Amount
++
+byte "king_price"
+app_global_get
+==
+assert
+gtxn 3 Amount
+byte "king_price"
+app_global_get
+byte "reward_multiplier"
+app_global_get
+int 100
+callsub mutiplyfixedpoint_3
+==
+assert
+gtxn 1 Amount
+byte "king_price"
+app_global_get
+byte "admin_fee"
+app_global_get
+int 100
+callsub mutiplyfixedpoint_3
+==
+assert
+b main_l14
+main_l16:
+global GroupSize
+int 3
+==
+assert
+txn GroupIndex
+int 0
+==
+assert
+gtxn 0 RekeyTo
+global ZeroAddress
+==
+gtxn 1 RekeyTo
+global ZeroAddress
+==
+&&
+gtxn 2 RekeyTo
+global ZeroAddress
+==
+&&
+assert
+int 1
+gtxn 0 TypeEnum
+int appl
+==
+&&
+gtxn 1 TypeEnum
+int pay
+==
+assert
+gtxn 1 Sender
+byte "king"
+app_global_get
+!=
+assert
+gtxn 1 Receiver
+byte "admin"
+app_global_get
+==
+assert
+gtxn 1 CloseRemainderTo
+global ZeroAddress
+==
+assert
+int 1
+&&
+gtxn 2 TypeEnum
+int pay
+==
+assert
+gtxn 2 Sender
+byte "king"
+app_global_get
+!=
+assert
+gtxn 2 Receiver
+global CurrentApplicationAddress
+==
+assert
+gtxn 2 CloseRemainderTo
+global ZeroAddress
+==
+assert
+int 1
+&&
+gtxn 1 Amount
+gtxn 2 Amount
++
+byte "init_price"
+app_global_get
+==
+assert
+gtxn 1 Amount
+byte "init_price"
+app_global_get
+byte "admin_fee"
+app_global_get
+int 100
+callsub mutiplyfixedpoint_3
+==
+assert
+int 1
+&&
+bnz main_l18
+err
+main_l18:
+callsub resettimestamp_2
+callsub setnewking_0
+int 1
+return
+main_l19:
+txn Sender
+byte "admin"
+app_global_get
+==
+assert
+int 1
+return
+main_l20:
+txn Sender
+byte "admin"
+app_global_get
+==
+assert
+int 1
+return
+main_l21:
+int 0
+return
+main_l22:
+int 0
+return
+main_l23:
+byte "admin"
+txn Sender
+app_global_put
+byte "admin_fee"
+int 5
+app_global_put
+byte "reign_period"
+txna ApplicationArgs 0
+btoi
+app_global_put
+byte "reward_multiplier"
+int 75
+app_global_put
+callsub setinitstate_1
+int 1
+return
+
+// set_new_king
+setnewking_0:
+byte "king_price"
+app_global_get
+store 0
+byte "king_price"
+load 0
+int 2
+*
+app_global_put
+byte "king"
+gtxn 2 Sender
+app_global_put
+retsub
+
+// set_init_state
+setinitstate_1:
+byte "king"
+byte ""
+app_global_put
+byte "init_price"
+int 100000
+app_global_put
+byte "king_price"
+int 100000
+app_global_put
+callsub resettimestamp_2
+retsub
+
+// reset_timestamp
+resettimestamp_2:
+byte "end_of_reign_timestamp"
+global LatestTimestamp
+byte "reign_period"
+app_global_get
++
+app_global_put
+retsub
+
+// mutiply_fixed_point
+mutiplyfixedpoint_3:
+store 3
+store 2
+store 1
+load 1
+load 2
+*
+load 3
+callsub divceil_4
+retsub
+
+// div_ceil
+divceil_4:
+store 5
+store 4
+load 4
+load 5
+%
+int 0
+>
+bnz divceil_4_l2
+load 4
+load 5
+/
+b divceil_4_l3
+divceil_4_l2:
+load 4
+load 5
+/
+int 1
++
+divceil_4_l3:
+retsub
