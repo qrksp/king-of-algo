@@ -148,6 +148,15 @@ byte "init_price"
 app_global_get
 ==
 assert
+gtxn 3 Amount
+byte "init_price"
+app_global_get
+byte "reward_multiplier"
+app_global_get
+int 100
+callsub mutiplyfixedpoint_3
+==
+assert
 gtxn 1 Amount
 byte "init_price"
 app_global_get

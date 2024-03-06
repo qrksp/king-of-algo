@@ -16,7 +16,7 @@ func TestContractDeployment(t *testing.T) {
 
 		owner := s.Accounts[0]
 		Convey("Creates app and sets default state", func() {
-			appID, err := client.Deploy(context.Background(), s.Algod, owner, time.Hour, "init note")
+			appID, err := client.Deploy(context.Background(), s.Algod, owner, time.Hour, "")
 			So(err, ShouldBeNil)
 
 			state, err := client.GetContractState(context.Background(), s.Algod, owner, appID)
@@ -50,7 +50,7 @@ func TestBecomeKing(t *testing.T) {
 		// 	fmt.Println("times up!")
 		// }()
 
-		appID, err := client.Deploy(context.Background(), s.Algod, owner, period, "init note")
+		appID, err := client.Deploy(context.Background(), s.Algod, owner, period, "")
 		So(err, ShouldBeNil)
 
 		Convey("Become first king when there is no previous king", func() {
@@ -167,6 +167,50 @@ func TestBecomeKing(t *testing.T) {
 					So(balances[owner.Address.String()], ShouldEqual, beforeBalances[owner.Address.String()]+(multiplyPercentage(priceToBeKing, state.AdminFee)))
 					So(balances[first.Address.String()], ShouldEqual, beforeBalances[first.Address.String()]-priceToBeKing-(transaction.MinTxnFee*4))
 					So(balances[second.Address.String()], ShouldEqual, beforeBalances[second.Address.String()]+(multiplyPercentage(priceToBeKing, state.RewardMultiplier)))
+
+					Convey("Returns an error for unbalanced rewards exploit", func() {
+						state, _ := client.GetContractState(context.Background(), s.Algod, owner, appID)
+
+						beforeBalances := s.getAccountsBalances()
+
+						endOfReign := state.EndOfReign
+						timeLeft := endOfReign.Sub(time.Now())
+						if timeLeft > 0 {
+							time.Sleep(timeLeft + time.Second*10)
+						}
+
+						So(state.EndOfReign, ShouldHappenBefore, time.Now())
+
+						_, err := client.BecomeKingUnbalancedRewardsExploit(
+							context.Background(),
+							s.Algod,
+							false,
+							client.NewBecomeKingParams(
+								s.getSuggestedParams(),
+								appID,
+								state,
+								second,
+								"I am a hacker",
+							),
+							3,
+						)
+						So(err, ShouldNotBeNil)
+
+						state, err = client.GetContractState(context.Background(), s.Algod, owner, appID)
+						So(err, ShouldBeNil)
+
+						So(state.InitPrice, ShouldEqual, 100000)
+						So(state.KingPrice, ShouldEqual, 800000)
+						So(state.King, ShouldEqual, first.Address.String())
+						So(state.Admin, ShouldEqual, owner.Address.String())
+						So(state.AdminFee, ShouldEqual, 5)
+
+						balances := s.getAccountsBalances()
+
+						So(balances[owner.Address.String()], ShouldEqual, beforeBalances[owner.Address.String()])
+						So(balances[second.Address.String()], ShouldEqual, beforeBalances[second.Address.String()])
+						So(balances[first.Address.String()], ShouldEqual, beforeBalances[first.Address.String()])
+					})
 
 					Convey("Become king after end of reign", func() {
 						state, _ := client.GetContractState(context.Background(), s.Algod, owner, appID)

