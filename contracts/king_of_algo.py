@@ -167,6 +167,7 @@ def assert_overthrowing_amounts(adminFeeTx: TxnObject, compensationTx: TxnObject
 def assert_end_of_reign_amounts(adminFeeTx: TxnObject, compensationTx: TxnObject, rewardTx: TxnObject) -> Expr:
     return Seq(
             Assert(adminFeeTx.amount() + compensationTx.amount() + rewardTx.amount() == App.globalGet(init_price_key)),
+            Assert(rewardTx.amount() == calculate_reward_from_price(App.globalGet(init_price_key))),
             Assert(adminFeeTx.amount() == calculate_admin_fee_from_price(App.globalGet(init_price_key))),
         )
 
